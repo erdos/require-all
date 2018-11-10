@@ -8,6 +8,8 @@ files on the classpath and the system loads them automatically.
 For example, have `defmethod` calls in the custom Clojure files and they
 automatically take effect without manually require-ing the namespaces.
 
+[![Clojars Project](https://img.shields.io/clojars/v/io.github.erdos/require-all.svg)](https://clojars.org/io.github.erdos/require-all)
+
 ## Usage
 
 First, add the project to your `project.clj` file: `[io.github.erdos/require-all "0.1.0"]`
