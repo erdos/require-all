@@ -3,6 +3,7 @@
   (:import java.net.URL)
   (:require [clojure.java.io :refer [file reader input-stream]]))
 
+(set! *warn-on-reflection* true)
 
 (defn- root-resource [lib] (.. (name lib) (replace \- \_) (replace \. \/)))
 
@@ -36,16 +37,16 @@
     (let [innerfile (new URL (.getFile url))]
       (when (= "file" (.getProtocol innerfile))
         (let [[jar inside] (.split (.getFile innerfile) "!")
-              inside (.substring inside 1)] ;; / levagasa az elejerol
+              inside (.substring (str inside) 1)] ;; / levagasa az elejerol
           (for [elem (enumeration-seq (.entries (java.util.zip.ZipFile. (str jar))))
-                :let [item (.getName elem)]
+                :let [item (.getName ^java.util.zip.ZipEntry elem)]
                 :when (.startsWith item inside)
                 :when (file-clj? (file item))]
             {:jar jar :item item :type :jar}))))))
 
 
-(defn- file-url->items [url]
-  (assert (instance? java.net.URL url))
+(defn- file-url->items [^URL url]
+  (assert (instance? URL url))
   (when (= "file" (.getProtocol url))
     (for [f (walk-url (.getFile url))
           :when (file-clj? f)

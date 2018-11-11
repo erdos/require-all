@@ -1,4 +1,4 @@
-(defproject io.github.erdos/require-all "0.1.0"
+(defproject io.github.erdos/require-all "0.1.1-SNAPSHOT"
   :description "Library to load all namespaces at once"
   :url "http://github.com/erdos/require-all"
   :license {:name "Eclipse Public License"
