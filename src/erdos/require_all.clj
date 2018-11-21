@@ -1,8 +1,7 @@
 (ns erdos.require-all
   (:import java.io.File)
   (:import java.net.URL)
-  (:require [clojure.java.io :refer [file reader input-stream]]
-            [clojure.java.io :as io]))
+  (:require [clojure.java.io :refer [file reader input-stream resource as-url]]))
 
 (set! *warn-on-reflection* true)
 
@@ -99,7 +98,6 @@
   [namespace-prefix]
   (keep item-ns (enum-items file-clj? namespace-prefix)))
 
-
 (defn list-all-resources
   "Returns a seq of all resources as URL objects. Optional keys:
    - :prefix the directories of the resource
@@ -114,8 +112,8 @@
                    (every-pred #(.endsWith (.getName ^File %) ^String suffix) match-fn)
                    match-fn)]
     (->> (enum-items match-fn prefix)
-         (map (some-fn :item :file))
-         (keep io/resource))))
+         (keep #(or (some-> % :item resource)
+                    (some-> % :file as-url))))))
 
 (defmacro require-all
   "Requires every namespace with a give prefix. "

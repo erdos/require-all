@@ -9,6 +9,6 @@
   (the-ns 'erdos.test1.a.y))
 
 (deftest list-all-resources-test
-  (is (seq (list-all-resources :prefix "clojure" :suffix "core.clj")))
-  (is (seq (list-all-resources "erdos")))
+  (is (seq (doall (list-all-resources :prefix "clojure" :suffix "core.clj"))))
+  (is (seq (doall (list-all-resources "erdos"))))
   (is (empty? (list-all-resources "xyz"))))
