@@ -12,7 +12,7 @@ automatically take effect without manually require-ing the namespaces.
 
 ## Usage
 
-First, add the project to your `project.clj` file: `[io.github.erdos/require-all "0.1.0"]`
+First, add the project to your `project.clj` file: `[io.github.erdos/require-all "0.1.1"]`
 
 Then need to require the library itself.
 
