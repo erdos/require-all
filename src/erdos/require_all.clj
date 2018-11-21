@@ -1,14 +1,15 @@
 (ns erdos.require-all
   (:import java.io.File)
   (:import java.net.URL)
-  (:require [clojure.java.io :refer [file reader input-stream]]))
+  (:require [clojure.java.io :refer [file reader input-stream]]
+            [clojure.java.io :as io]))
 
 (set! *warn-on-reflection* true)
 
 (defn- root-resource [lib] (.. (name lib) (replace \- \_) (replace \. \/)))
 
 
-(defn- list-all-resources [root]
+(defn- all-resources-seq [root]
   (-> (Thread/currentThread)
       (.getContextClassLoader)
       (.getResources (str root))
@@ -31,7 +32,8 @@
   (-> f (.getName) (.toLowerCase) (.endsWith "__init.class")))
 
 
-(defn- jar-url->items [^URL url]
+(defn- jar-url->items [match-fn ^URL url]
+  (assert (fn? match-fn))
   (assert (instance? URL url))
   (when (= "jar" (.getProtocol url))
     (let [innerfile (new URL (.getFile url))]
@@ -41,15 +43,17 @@
           (for [elem (enumeration-seq (.entries (java.util.zip.ZipFile. (str jar))))
                 :let [item (.getName ^java.util.zip.ZipEntry elem)]
                 :when (.startsWith item inside)
-                :when (file-clj? (file item))]
+                :when (match-fn (file item))]
             {:jar jar :item item :type :jar}))))))
 
 
-(defn- file-url->items [^URL url]
+(defn- file-url->items [match-fn ^URL url]
+  (assert (fn? match-fn))
   (assert (instance? URL url))
   (when (= "file" (.getProtocol url))
     (for [f (walk-url (.getFile url))
-          :when (file-clj? f)
+          :when (not (.isDirectory ^File f))
+          :when (match-fn f)
           :when (not (file-hidden? f))]
       {:type :file :file f})))
 
@@ -61,9 +65,9 @@
         (second form)))))
 
 
-(defn- enum-items [namespace-prefix]
-  (mapcat (some-fn file-url->items jar-url->items)
-          (list-all-resources (root-resource namespace-prefix))))
+(defn- enum-items [match-fn namespace-prefix]
+  (mapcat (some-fn (partial file-url->items match-fn) (partial jar-url->items match-fn))
+          (all-resources-seq (root-resource namespace-prefix))))
 
 
 (defn- input-stream->ns [istream]
@@ -93,14 +97,25 @@
 (defn list-all-namespaces
   "Returns a seq of all namespace symbols with a given prefix"
   [namespace-prefix]
-  (keep item-ns (enum-items namespace-prefix)))
+  (keep item-ns (enum-items file-clj? namespace-prefix)))
 
-;; TODO: blacklisting: do not import test classes
-;; TODO: also require precompiled namespaces
-;; TODO: work both in compile and runtime!
 
-;; (list-all-namespaces 'erdos)
-;; (list-all-namespaces 'clojure)
+(defn list-all-resources
+  "Returns a seq of all resources as URL objects. Optional keys:
+   - :prefix the directories of the resource
+   - :match-fn a predicate to decide if a result should be included.
+   - :suffix suffix for the file name"
+  [& kvs]
+  (let [[pre kvs] (if (even? (count kvs)) [nil kvs] [(first kvs) (next kvs)])
+        {:keys [prefix suffix predicate]} (apply hash-map kvs)
+        prefix   (or pre prefix "/")
+        match-fn (or predicate (constantly true))
+        match-fn (if suffix
+                   (every-pred #(.endsWith (.getName ^File %) ^String suffix) match-fn)
+                   match-fn)]
+    (->> (enum-items match-fn prefix)
+         (map (some-fn :item :file))
+         (keep io/resource))))
 
 (defmacro require-all
   "Requires every namespace with a give prefix. "
