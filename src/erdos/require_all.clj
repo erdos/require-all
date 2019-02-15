@@ -3,9 +3,13 @@
   (:import java.net.URL)
   (:require [clojure.java.io :refer [file reader input-stream resource as-url]]))
 
+
 (set! *warn-on-reflection* true)
 
-(defn- root-resource [lib] (.. (name lib) (replace \- \_) (replace \. \/)))
+
+(defn- root-resource [lib]
+  (assert (some? lib))
+  (.. (name lib) (replace \- \_) (replace \. \/)))
 
 
 (defn- all-resources-seq [root]
@@ -65,6 +69,8 @@
 
 
 (defn- enum-items [match-fn namespace-prefix]
+  (assert (fn? match-fn))
+  (assert (some? namespace-prefix))
   (mapcat (some-fn (partial file-url->items match-fn) (partial jar-url->items match-fn))
           (all-resources-seq (root-resource namespace-prefix))))
 
@@ -96,27 +102,35 @@
 (defn list-all-namespaces
   "Returns a seq of all namespace symbols with a given prefix"
   [namespace-prefix]
+  (assert (symbol? namespace-prefix))
   (keep item-ns (enum-items file-clj? namespace-prefix)))
 
 (defn list-all-resources
   "Returns a seq of all resources as URL objects. Optional keys:
    - :prefix the directories of the resource
-   - :match-fn a predicate to decide if a result should be included.
-   - :suffix suffix for the file name"
+   - :predicate a predicate to decide if a result should be included.
+   - :suffix suffix for the file name
+   - :suffix-ci case insensitive suffix for file name"
   [& kvs]
-  (let [[pre kvs] (if (even? (count kvs)) [nil kvs] [(first kvs) (next kvs)])
-        {:keys [prefix suffix predicate]} (apply hash-map kvs)
-        prefix   (or pre prefix "/")
+  (let [[pre kvs] (if (even? (count kvs)) [nil kvs] [(not-empty (first kvs)) (next kvs)])
+        {:keys [prefix suffix suffix-ci predicate]} (apply hash-map kvs)
+        prefix   (or pre prefix "")
         match-fn (or predicate (constantly true))
-        match-fn (if suffix
-                   (every-pred #(.endsWith (.getName ^File %) ^String suffix) match-fn)
-                   match-fn)]
+        match-fn (cond
+                   suffix    (every-pred #(.endsWith (.getName ^File %) ^String suffix) match-fn)
+                   suffix-ci (every-pred #(.endsWith (.toLowerCase (.getName ^File %))
+                                                     (.toLowerCase ^String suffix-ci)) match-fn)
+                   :default  match-fn)]
+    (assert (fn? match-fn))
     (->> (enum-items match-fn prefix)
          (keep #(or (some-> % :item resource)
                     (some-> % :file as-url))))))
 
 (defmacro require-all
-  "Requires every namespace with a give prefix. "
+  "Requires every namespace with a given prefix.
+   Opts is a map with the following keys:
+   - :except - a colletion namespace name symbols that should not be required.
+  "
   [prefix & {:as opts}]
   (assert (symbol? prefix))
   (assert (every? symbol? (:except opts)))
@@ -125,7 +139,9 @@
     (list* 'do
 
            ;; Runtime requires
-           `(doseq [ns# (list-all-namespaces '~prefix)] (require ns#))
+           `(doseq [ns# (list-all-namespaces '~prefix)
+                    :when (not (contains? '~(set (:except opts)) ns#))]
+              (require ns#))
 
            ;; Compile time import
            (for [nss namespaces] `(require '~nss)))))
