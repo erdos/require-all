@@ -39,7 +39,7 @@ The `list-all-resources` function can be use to get a list of all resource `URL`
 
 ## License
 
-Copyright © 2018 Janos Erdos
+Copyright © 2019 Janos Erdos
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
